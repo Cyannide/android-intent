@@ -27,14 +27,14 @@ impl<'env> Intent<'env> {
         Self { inner }
     }
 
-    pub fn new(env: JNIEnv<'env>, action: impl AsRef<str>) -> Self {
+    pub fn new(mut env: JNIEnv<'env>, action: impl AsRef<str>) -> Self {
         Self::from_fn(|| {
             let intent_class = env.find_class("android/content/Intent")?;
             let action_view =
-                env.get_static_field(intent_class, action.as_ref(), "Ljava/lang/String;")?;
+                env.get_static_field(&intent_class, action.as_ref(), "Ljava/lang/String;")?;
 
             let intent =
-                env.new_object(intent_class, "(Ljava/lang/String;)V", &[action_view.into()])?;
+                env.new_object(intent_class, "(Ljava/lang/String;)V", &[(&action_view).into()])?;
 
             Ok(Inner {
                 env,
@@ -43,7 +43,7 @@ impl<'env> Intent<'env> {
         })
     }
 
-    pub fn new_with_uri(env: JNIEnv<'env>, action: impl AsRef<str>, uri: impl AsRef<str>) -> Self {
+    pub fn new_with_uri(mut env: JNIEnv<'env>, action: impl AsRef<str>, uri: impl AsRef<str>) -> Self {
         Self::from_fn(|| {
             let url_string = env.new_string(uri)?;
             let uri_class = env.find_class("android/net/Uri")?;
@@ -51,17 +51,17 @@ impl<'env> Intent<'env> {
                 uri_class,
                 "parse",
                 "(Ljava/lang/String;)Landroid/net/Uri;",
-                &[JString::from(url_string).into()],
+                &[(&JString::from(url_string)).into()],
             )?;
 
             let intent_class = env.find_class("android/content/Intent")?;
             let action_view =
-                env.get_static_field(intent_class, action.as_ref(), "Ljava/lang/String;")?;
+                env.get_static_field(&intent_class, action.as_ref(), "Ljava/lang/String;")?;
 
             let intent = env.new_object(
                 intent_class,
                 "(Ljava/lang/String;Landroid/net/Uri;)V",
-                &[action_view.into(), uri.into()],
+                &[(&action_view).into(), (&uri).into()],
             )?;
 
             Ok(Inner {
@@ -81,15 +81,15 @@ impl<'env> Intent<'env> {
     /// # })
     /// ```
     pub fn set_class_name(self, package_name: impl AsRef<str>, class_name: impl AsRef<str>) -> Self {
-        self.and_then(|inner| {
+        self.and_then(|mut inner| {
             let package_name = inner.env.new_string(package_name)?;
             let class_name = inner.env.new_string(class_name)?;
 
             inner.env.call_method(
-                inner.object,
+                &inner.object,
                 "setClassName",
                 "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;",
-                &[package_name.into(), class_name.into()],
+                &[(&package_name).into(), (&class_name).into()],
             )?;
 
             Ok(inner)
@@ -106,15 +106,15 @@ impl<'env> Intent<'env> {
     /// # })
     /// ```
     pub fn with_extra(self, key: impl AsRef<str>, value: impl AsRef<str>) -> Self {
-        self.and_then(|inner| {
+        self.and_then(|mut inner| {
             let key = inner.env.new_string(key)?;
             let value = inner.env.new_string(value)?;
 
             inner.env.call_method(
-                inner.object,
+                &inner.object,
                 "putExtra",
                 "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;",
-                &[key.into(), value.into()],
+                &[(&key).into(), (&value).into()],
             )?;
 
             Ok(inner)
@@ -137,9 +137,9 @@ impl<'env> Intent<'env> {
         self.and_then(|mut inner| {
             let title_value = if let Some(title) = title {
                 let s = inner.env.new_string(title)?;
-                s.into()
+				s
             } else {
-                JObject::null().into()
+				JObject::null().into()
             };
 
             let intent_class = inner.env.find_class("android/content/Intent")?;
@@ -147,7 +147,7 @@ impl<'env> Intent<'env> {
                 intent_class,
                 "createChooser",
                 "(Landroid/content/Intent;Ljava/lang/CharSequence;)Landroid/content/Intent;",
-                &[inner.object.into(), title_value],
+                &[(&inner.object).into(), (&title_value).into()],
             )?;
 
             inner.object = intent.try_into()?;
@@ -165,14 +165,14 @@ impl<'env> Intent<'env> {
     /// # })
     /// ```
     pub fn with_type(self, type_name: impl AsRef<str>) -> Self {
-        self.and_then(|inner| {
+        self.and_then(|mut inner| {
             let jstring = inner.env.new_string(type_name)?;
 
             inner.env.call_method(
-                inner.object,
+                &inner.object,
                 "setType",
                 "(Ljava/lang/String;)Landroid/content/Intent;",
-                &[jstring.into()],
+                &[(&jstring).into()],
             )?;
 
             Ok(inner)
@@ -183,12 +183,12 @@ impl<'env> Intent<'env> {
         let cx = ndk_context::android_context();
         let activity = unsafe { JObject::from_raw(cx.context() as jni::sys::jobject) };
 
-        self.inner.and_then(|inner| {
+        self.inner.and_then(|mut inner| {
             inner.env.call_method(
                 activity,
                 "startActivity",
                 "(Landroid/content/Intent;)V",
-                &[inner.object.into()],
+                &[(&inner.object).into()],
             )?;
 
             Ok(())

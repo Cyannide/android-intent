@@ -14,5 +14,7 @@ pub fn with_current_env(f: impl FnOnce(JNIEnv)) {
     let vm = unsafe { JavaVM::from_raw(cx.vm().cast()) }.unwrap();
     let env = vm.attach_current_thread().unwrap();
 
-    f(env.clone());
+    unsafe {
+        f(env.unsafe_clone());
+    }
 }
